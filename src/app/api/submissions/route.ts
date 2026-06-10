@@ -9,6 +9,69 @@ const PLATFORM_REGEX = {
   FACEBOOK: /^(https?:\/\/)?(www\.)?(facebook\.com|fb\.watch|fb\.com)\/(watch\?v=|story\.php|photo\.php|permalink\.php)?/i,
 };
 
+// Add timeout-supported fetch helper to verify URL existence
+async function verifyUrlExists(url: string, platform: string): Promise<{ exists: boolean; reason?: string }> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(id);
+
+    // 1. If definitive 404 Not Found, the post/video does not exist.
+    if (response.status === 404) {
+      return { exists: false, reason: 'This post or page does not exist (404 Not Found).' };
+    }
+
+    // 2. Read the page text to look for platform-specific error indicators
+    const text = await response.text();
+
+    if (platform === 'YOUTUBE') {
+      const isUnavailable = 
+        text.includes('playerErrorMessageRenderer') || 
+        text.includes('"playabilityStatus":{"status":"ERROR"') ||
+        /<title>\s*-\s*YouTube<\/title>/i.test(text);
+      if (isUnavailable) {
+        return { exists: false, reason: 'This YouTube video is unavailable or does not exist.' };
+      }
+    }
+
+    if (platform === 'INSTAGRAM') {
+      if (text.includes('Page Not Found') || text.includes("This page isn't available")) {
+        return { exists: false, reason: 'This Instagram page or post is not available.' };
+      }
+    }
+
+    if (platform === 'TIKTOK') {
+      // Reject if the response explicitly indicates an invalid/nonexistent item ID
+      if (text.includes('"statusCode":100002') || text.includes('"statusMsg":"invalid item id"')) {
+        return { exists: false, reason: 'This TikTok video is unavailable or does not exist.' };
+      }
+    }
+
+    return { exists: true };
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      console.warn('URL verification timed out, allowing link as fallback.');
+      return { exists: true }; // Timeout: bypass to avoid blocking valid submissions
+    }
+    console.error('URL reachability check failed:', error);
+    if (error.code === 'ENOTFOUND') {
+      return { exists: false, reason: 'The domain could not be resolved. Please check your link.' };
+    }
+    return { exists: true }; // Other networking errors: bypass and allow
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -61,6 +124,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // 3.5. Reachability and Existence check
+    const verification = await verifyUrlExists(trimmedUrl, upperPlatform);
+    if (!verification.exists) {
+      return NextResponse.json(
+        { error: verification.reason || 'The submitted link could not be opened or does not exist.' },
+        { status: 400 }
+      );
+    }
+
     // 4. Save Submission to Database
     const submission = await prisma.submission.create({
       data: {
@@ -87,3 +159,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
