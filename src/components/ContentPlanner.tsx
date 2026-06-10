@@ -13,10 +13,30 @@ interface ScheduledPost {
   errorMessage?: string;
 }
 
+// Helper to get default date and time values (1 hour from now)
+const getDefaults = () => {
+  const now = new Date();
+  now.setHours(now.getHours() + 1);
+  
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hours}:${minutes}`
+  };
+};
+
 export default function ContentPlanner() {
+  const defaults = getDefaults();
   const [activePlatform, setActivePlatform] = useState('INSTAGRAM');
   const [caption, setCaption] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledDate, setScheduledDate] = useState(defaults.date);
+  const [scheduledTime, setScheduledTime] = useState(defaults.time);
   const [mediaUrl, setMediaUrl] = useState('');
   const [uploadType, setUploadType] = useState<'url' | 'file'>('url');
   const [isUploading, setIsUploading] = useState(false);
@@ -78,13 +98,14 @@ export default function ContentPlanner() {
     setError(null);
     setSuccess(null);
 
-    if (!mediaUrl || !caption || !scheduledTime) {
+    if (!mediaUrl || !caption || !scheduledDate || !scheduledTime) {
       setError('Please fill in all fields.');
       setIsLoading(false);
       return;
     }
 
     try {
+      const combinedTime = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
       const response = await fetch('/api/scheduled', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,7 +113,7 @@ export default function ContentPlanner() {
           mediaUrl,
           caption,
           platform: activePlatform,
-          scheduledTime
+          scheduledTime: combinedTime
         })
       });
 
@@ -102,7 +123,9 @@ export default function ContentPlanner() {
       setSuccess('Post scheduled successfully!');
       setCaption('');
       setMediaUrl('');
-      setScheduledTime('');
+      const freshDefaults = getDefaults();
+      setScheduledDate(freshDefaults.date);
+      setScheduledTime(freshDefaults.time);
       fetchQueue();
     } catch (err: any) {
       setError(err.message || 'Something went wrong.');
@@ -287,17 +310,31 @@ export default function ContentPlanner() {
               {/* Scheduled Time picker */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Schedule Release</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <Calendar size={16} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <Calendar size={16} />
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="w-full pl-10 pr-4 h-11 bg-slate-955 border border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none text-sm transition duration-150"
+                    />
                   </div>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
-                    className="w-full pl-10 pr-4 h-11 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none text-sm transition duration-150"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <Clock size={16} />
+                    </div>
+                    <input
+                      type="time"
+                      required
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="w-full pl-10 pr-4 h-11 bg-slate-955 border border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none text-sm transition duration-150"
+                    />
+                  </div>
                 </div>
               </div>
 
