@@ -1,65 +1,51 @@
 'use client';
 
-import React, { useMemo, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import EmployeeForm from '@/components/EmployeeForm';
-import { ArrowLeft, UserCheck } from 'lucide-react';
+import { ArrowLeft, UserCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-// Mock database registry for client accounts and users
-const EMPLOYEE_REGISTRY = {
-  'emp-1': {
-    name: 'Alice Carter',
-    accounts: [
-      { id: 'acc-1a', name: 'AeroMax Aviation' },
-      { id: 'acc-1b', name: 'Bella Fashions' },
-      { id: 'acc-1c', name: 'CyberNetic Solutions' }
-    ]
-  },
-  'emp-2': {
-    name: 'Bob Sterling',
-    accounts: [
-      { id: 'acc-2a', name: 'Dexter Logistics' },
-      { id: 'acc-2b', name: 'Echo Solar Energy' },
-      { id: 'acc-2c', name: 'Fusion Bakeries' }
-    ]
-  },
-  'emp-3': {
-    name: 'Charlie Vance',
-    accounts: [
-      { id: 'acc-3a', name: 'Genesis BioTech' },
-      { id: 'acc-3b', name: 'Horizon Travels' },
-      { id: 'acc-3c', name: 'Apex Real Estate' }
-    ]
-  },
-  'emp-4': {
-    name: 'Diana Prince',
-    accounts: [
-      { id: 'acc-4a', name: 'Javalin Software' },
-      { id: 'acc-4b', name: 'Krypton Minerals' },
-      { id: 'acc-4c', name: 'Lunar Coffee Co.' }
-    ]
-  },
-  'emp-5': {
-    name: 'Ethan Hunt',
-    accounts: [
-      { id: 'acc-5a', name: 'Mission Logistics' },
-      { id: 'acc-5b', name: 'Nova Marketing' },
-      { id: 'acc-5c', name: 'Omega Watchmakers' }
-    ]
-  }
-} as const;
+import { getEmployeePortalData } from '@/app/actions';
 
 function EmployeePortalContent() {
   const searchParams = useSearchParams();
   const employeeId = searchParams.get('id');
 
-  const employee = useMemo(() => {
-    if (!employeeId || !(employeeId in EMPLOYEE_REGISTRY)) {
-      return null;
+  const [employee, setEmployee] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!employeeId) {
+      setIsLoading(false);
+      return;
     }
-    return EMPLOYEE_REGISTRY[employeeId as keyof typeof EMPLOYEE_REGISTRY];
+
+    async function loadPortalData() {
+      try {
+        const data = await getEmployeePortalData(employeeId as string);
+        if (data) {
+          setEmployee(data.employee);
+          setSubmissions(data.submissions);
+        }
+      } catch (error) {
+        console.error('Failed to load employee portal data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadPortalData();
   }, [employeeId]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-400">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-2" />
+        <span className="text-sm font-semibold">Resolving employee credentials...</span>
+      </div>
+    );
+  }
 
   if (!employee || !employeeId) {
     return (
@@ -83,38 +69,6 @@ function EmployeePortalContent() {
     );
   }
 
-  // Create initial mock submissions to demonstrate progress rings on load
-  const mockSubmissions = [
-    {
-      id: 'mock-1',
-      url: 'https://www.youtube.com/watch?v=mockLink1',
-      platform: 'YOUTUBE' as const,
-      clientAccountId: employee.accounts[0].id,
-      createdAt: new Date()
-    },
-    {
-      id: 'mock-2',
-      url: 'https://www.instagram.com/p/mockLink2',
-      platform: 'INSTAGRAM' as const,
-      clientAccountId: employee.accounts[0].id,
-      createdAt: new Date()
-    },
-    {
-      id: 'mock-3',
-      url: 'https://www.tiktok.com/@user/video/mockLink3',
-      platform: 'TIKTOK' as const,
-      clientAccountId: employee.accounts[1].id,
-      createdAt: new Date()
-    },
-    {
-      id: 'mock-4',
-      url: 'https://www.facebook.com/watch?v=mockLink4',
-      platform: 'FACEBOOK' as const,
-      clientAccountId: employee.accounts[2].id,
-      createdAt: new Date()
-    }
-  ];
-
   return (
     <div>
       <div className="bg-slate-950 border-b border-slate-800 py-3 px-4 flex items-center justify-between">
@@ -134,7 +88,7 @@ function EmployeePortalContent() {
         employeeName={employee.name}
         employeeId={employeeId}
         clientAccounts={employee.accounts as unknown as { id: string; name: string }[]}
-        initialSubmissions={mockSubmissions}
+        initialSubmissions={submissions}
       />
     </div>
   );
@@ -155,3 +109,4 @@ export default function EmployeePage() {
     </Suspense>
   );
 }
+

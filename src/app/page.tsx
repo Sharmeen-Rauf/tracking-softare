@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getEmployees } from '@/app/actions';
 import { 
   ShieldAlert, 
   Users, 
@@ -16,13 +17,17 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const employees = [
-    { id: 'emp-1', name: 'Alice Carter' },
-    { id: 'emp-2', name: 'Bob Sterling' },
-    { id: 'emp-3', name: 'Charlie Vance' },
-    { id: 'emp-4', name: 'Diana Prince' },
-    { id: 'emp-5', name: 'Ethan Hunt' }
-  ];
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await getEmployees();
+      setEmployees(data);
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-955 text-slate-100 flex flex-col justify-between p-6 md:p-12 relative overflow-hidden">
@@ -116,19 +121,29 @@ export default function Home() {
 
               {/* Employee list dropdown simulator */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {employees.map((emp) => (
-                  <Link 
-                    key={emp.id}
-                    href={`/employee?id=${emp.id}`}
-                    className="p-3 bg-slate-900/50 hover:bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl flex items-center justify-between text-slate-300 hover:text-white transition-all group text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-indigo-400" />
-                      <span className="font-semibold">{emp.name}</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:translate-x-0.5 transition-transform" />
-                  </Link>
-                ))}
+                {isLoading ? (
+                  <div className="col-span-2 text-center text-xs text-slate-500 py-6 animate-pulse">
+                    Connecting to Supabase...
+                  </div>
+                ) : employees.length === 0 ? (
+                  <div className="col-span-2 text-center text-xs text-slate-500 border border-dashed border-slate-800 py-6 rounded-2xl">
+                    No employees in database.<br />Click the Boss Dashboard button to add them.
+                  </div>
+                ) : (
+                  employees.map((emp) => (
+                    <Link 
+                      key={emp.id}
+                      href={`/employee?id=${emp.id}`}
+                      className="p-3 bg-slate-900/50 hover:bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl flex items-center justify-between text-slate-300 hover:text-white transition-all group text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-indigo-400" />
+                        <span className="font-semibold">{emp.name}</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
           </div>

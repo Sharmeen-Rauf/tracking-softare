@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-// Initializing Prisma client (in production, you would typically use a global client to prevent multiple instances)
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // Platform Domain Verification Regexes
 const PLATFORM_REGEX = {
