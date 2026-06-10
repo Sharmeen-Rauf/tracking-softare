@@ -24,7 +24,7 @@ export function encryptToken(token: string): EncryptedData {
   return {
     encrypted,
     iv: iv.toString('hex'),
-    tag: tag.toString('hex')
+    tag
   };
 }
 
