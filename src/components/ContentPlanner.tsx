@@ -46,6 +46,12 @@ export default function ContentPlanner() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // OAuth states
+  const [showOAuthModal, setShowOAuthModal] = useState(false);
+  const [oauthPlatform, setOauthPlatform] = useState('INSTAGRAM');
+  const [oauthToken, setOauthToken] = useState('mock_access_token_instagram_66504abc1293e');
+  const [isOauthConnecting, setIsOauthConnecting] = useState(false);
+
   // Fetch the schedule queue
   const fetchQueue = async () => {
     setIsRefreshing(true);
@@ -64,6 +70,33 @@ export default function ContentPlanner() {
   useEffect(() => {
     fetchQueue();
   }, []);
+
+  const handleOAuthConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsOauthConnecting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch('/api/auth/mock-connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: oauthPlatform,
+          token: oauthToken
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to connect account');
+
+      setSuccess(data.message || 'Connected successfully!');
+      setShowOAuthModal(false);
+    } catch (err: any) {
+      setError(`OAuth Error: ${err.message}`);
+    } finally {
+      setIsOauthConnecting(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -179,7 +212,10 @@ export default function ContentPlanner() {
               <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
               <span>Run Cron Bot</span>
             </button>
-            <button className="flex items-center gap-2 px-4 h-11 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition duration-150">
+            <button 
+              onClick={() => setShowOAuthModal(true)}
+              className="flex items-center gap-2 px-4 h-11 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition duration-150"
+            >
               <Link2 size={16} />
               <span>Connect OAuth</span>
             </button>
@@ -457,6 +493,79 @@ export default function ContentPlanner() {
         </div>
 
       </div>
+
+      {/* OAuth Connection Modal */}
+      {showOAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-6 shadow-2xl relative">
+            <div>
+              <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <Link2 size={20} className="text-indigo-400" />
+                <span>Simulate OAuth Connection</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Since full API connections require developer portal credentials, you can simulate and save encrypted token credentials for test posting.
+              </p>
+            </div>
+
+            <form onSubmit={handleOAuthConnect} className="space-y-4">
+              {/* Platform selection */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Platform</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {['INSTAGRAM', 'TIKTOK', 'FACEBOOK', 'YOUTUBE'].map((plat) => (
+                    <button
+                      key={plat}
+                      type="button"
+                      onClick={() => {
+                        setOauthPlatform(plat);
+                        setOauthToken(`mock_access_token_${plat.toLowerCase()}_${Math.random().toString(36).substring(2, 12)}`);
+                      }}
+                      className={`h-9 text-[10px] font-bold rounded-lg border transition-all duration-150 ${
+                        oauthPlatform === plat
+                          ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
+                          : 'bg-slate-950 border-slate-850 text-slate-500 hover:border-slate-800 hover:text-slate-300'
+                      }`}
+                    >
+                      {plat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Token Input */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Mock Access Token</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter token..."
+                  value={oauthToken}
+                  onChange={(e) => setOauthToken(e.target.value)}
+                  className="w-full px-4 h-11 bg-slate-950 border border-slate-850 rounded-xl focus:border-indigo-500 focus:outline-none text-xs font-mono transition duration-150"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOAuthModal(false)}
+                  className="flex-1 h-11 bg-slate-955 border border-slate-850 hover:border-slate-800 text-slate-400 hover:text-slate-200 font-bold rounded-xl text-sm transition duration-150"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isOauthConnecting}
+                  className="flex-1 h-11 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition duration-150 shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                >
+                  {isOauthConnecting ? 'Connecting...' : 'Save Connection'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
