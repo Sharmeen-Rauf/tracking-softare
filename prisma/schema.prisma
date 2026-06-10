@@ -1,0 +1,56 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum Platform {
+  INSTAGRAM
+  YOUTUBE
+  TIKTOK
+  FACEBOOK
+}
+
+model User {
+  id           String         @id @default(uuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  role         Role           @default(EMPLOYEE)
+  accounts     ClientAccount[] // Managed accounts (for Employees)
+  submissions  Submission[]    // Submissions entered by this user
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model ClientAccount {
+  id          String       @id @default(uuid())
+  name        String
+  employeeId  String
+  employee    User         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([name, employeeId]) // Ensure unique client account name per employee
+}
+
+model Submission {
+  id              String         @id @default(uuid())
+  url             String         @unique // Critical for global uniqueness checking
+  platform        Platform
+  clientAccountId String
+  clientAccount   ClientAccount  @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+  submittedById   String
+  submittedBy     User           @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+}
