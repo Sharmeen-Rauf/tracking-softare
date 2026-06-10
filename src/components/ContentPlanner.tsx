@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, Image, Send, CheckCircle2, AlertCircle, Clock, Link2, Plus, RefreshCw } from 'lucide-react';
+import { Calendar, Image, Send, CheckCircle2, AlertCircle, Clock, Link2, Plus, RefreshCw, Upload } from 'lucide-react';
 
 interface ScheduledPost {
   id: string;
@@ -18,6 +18,8 @@ export default function ContentPlanner() {
   const [caption, setCaption] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [uploadType, setUploadType] = useState<'url' | 'file'>('url');
+  const [isUploading, setIsUploading] = useState(false);
   const [queue, setQueue] = useState<ScheduledPost[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,33 @@ export default function ContentPlanner() {
   useEffect(() => {
     fetchQueue();
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    setError(null);
+    setSuccess(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setMediaUrl(data.url);
+      setSuccess('Media file uploaded successfully!');
+    } catch (err: any) {
+      setError(`Upload error: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,22 +208,67 @@ export default function ContentPlanner() {
                 </div>
               </div>
 
-              {/* Media URL Input */}
+              {/* Media Input Type Selector */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Media URL (Image / Video)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <Image size={16} />
-                  </div>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500"
-                    value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                    className="w-full pl-10 pr-4 h-11 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none text-sm transition duration-150"
-                  />
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Media Attachment</label>
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-850 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => { setUploadType('url'); setMediaUrl(''); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition duration-150 ${
+                      uploadType === 'url' ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Remote URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setUploadType('file'); setMediaUrl(''); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition duration-150 ${
+                      uploadType === 'file' ? 'bg-indigo-600/20 text-indigo-300' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    File Upload
+                  </button>
                 </div>
+
+                {uploadType === 'url' ? (
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <Image size={16} />
+                    </div>
+                    <input
+                      type="url"
+                      required
+                      placeholder="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500"
+                      value={mediaUrl}
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                      className="w-full pl-10 pr-4 h-11 bg-slate-950 border border-slate-800 rounded-xl focus:border-indigo-500 focus:outline-none text-sm transition duration-150"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative border border-dashed border-slate-800 hover:border-slate-700/80 rounded-xl p-4 bg-slate-950 transition duration-150">
+                    <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                      <Upload size={24} className={`text-slate-500 ${isUploading ? 'animate-bounce' : ''}`} />
+                      <div className="text-xs text-slate-400 font-semibold">
+                        {isUploading ? (
+                          <span>Uploading file...</span>
+                        ) : mediaUrl ? (
+                          <span className="text-emerald-400 truncate max-w-[250px] block font-mono text-[10px]">{mediaUrl}</span>
+                        ) : (
+                          <span>Click to upload image or video</span>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        disabled={isUploading}
+                        onChange={handleFileUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Caption Box */}
