@@ -35,13 +35,10 @@ async function verifyUrlExists(url: string, platform: string): Promise<{ exists:
     const text = await response.text();
 
     if (platform === 'YOUTUBE') {
-      const isUnavailable = 
-        text.includes('playerErrorMessageRenderer') || 
-        text.includes('"playabilityStatus":{"status":"ERROR"') ||
-        /<title>\s*-\s*YouTube<\/title>/i.test(text);
-      if (isUnavailable) {
-        return { exists: false, reason: 'This YouTube video is unavailable or does not exist.' };
-      }
+      // YouTube heavily restricts/blocks serverless cloud IPs (like Vercel/AWS),
+      // serving a generic player error page even for valid videos. To prevent false
+      // blocking of valid submissions, we bypass content body verification for YouTube.
+      return { exists: true };
     }
 
     if (platform === 'INSTAGRAM') {
