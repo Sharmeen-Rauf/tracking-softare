@@ -15,6 +15,28 @@ async function verifyUrlExists(url: string, platform: string): Promise<{ exists:
   const id = setTimeout(() => controller.abort(), 5000); // 5-second timeout
 
   try {
+    if (platform === 'YOUTUBE') {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+      const response = await fetch(oembedUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(id);
+
+      if (response.status === 200) {
+        return { exists: true };
+      } else if (response.status === 400 || response.status === 404) {
+        return { exists: false, reason: 'This YouTube video is unavailable or does not exist.' };
+      }
+
+      console.warn(`YouTube oEmbed API returned status ${response.status}, bypassing verification.`);
+      return { exists: true };
+    }
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -33,13 +55,6 @@ async function verifyUrlExists(url: string, platform: string): Promise<{ exists:
 
     // 2. Read the page text to look for platform-specific error indicators
     const text = await response.text();
-
-    if (platform === 'YOUTUBE') {
-      // YouTube heavily restricts/blocks serverless cloud IPs (like Vercel/AWS),
-      // serving a generic player error page even for valid videos. To prevent false
-      // blocking of valid submissions, we bypass content body verification for YouTube.
-      return { exists: true };
-    }
 
     if (platform === 'INSTAGRAM') {
       if (text.includes('Page Not Found') || text.includes("This page isn't available")) {
